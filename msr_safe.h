@@ -21,12 +21,30 @@
 struct msr_batch_op
 {
     __u16 cpu;     // In: CPU to execute {rd/wr}msr instruction
-    __u16 isrdmsr; // In: 0=wrmsr, non-zero=rdmsr
+    __u16 msrcmd;  // In: 0=wrmsr, 0x1=rdmsr.  See below for flags.
     __s32 err;     // Out: set if error occurred with this operation
     __u32 msr;     // In: MSR Address to perform operation
-    __u64 msrdata; // In/Out: Input/Result to/from operation
+    __u64 msrdata; // In/Out: Input/Result to/from operation.  
+    		   //   Name retained for backwards compatibility.
     __u64 wmask;   // Out: Write mask applied to wrmsr
+    __u64 aperf0;  // Out: APERF at the beginning of the command.
+    __u64 mperf0;  // Out: MPERF at the beginning of the command.
+    __u64 aperf1;  // Out: APERF at the end of the command.
+    __u64 mperf1;  // Out: MPERF at the end of the command.
+    __u64 msrdata1;// Out: Value at the end of the command.
 };
+
+/* Flags for msrcmd:
+ *
+ * 0x0001	0=wrmsr, 1=rdmsr
+ * 0x0002	If rdmsr, store initial read in msrdata0, poll until 
+ * 		  the values changes, then store the new value in
+ * 		  msrdata1.
+ * 0x0004	If rdmsr, store APERF and MPERF values in aperf0
+ *                and mperf0 before reading the target msr.
+ * 0x0008       If rdmsr, store APERF and MPERF values in aperf1
+ *                and mperf1 after reading the target msr.
+ */
 
 struct msr_batch_array
 {

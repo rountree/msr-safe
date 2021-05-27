@@ -97,7 +97,7 @@ static int msrbatch_apply_allowlist(struct msr_batch_array *oa)
         {
             op->wmask = msr_allowlist_writemask(op->msr);
             /* Check for read-only case */
-            if (op->wmask == 0 && !op->isrdmsr)
+            if (op->wmask == 0 && !(op->msrcmd & 1))
             {
                 pr_debug("MSR %x is read-only\n", op->msr);
                 op->err = err = -EACCES;

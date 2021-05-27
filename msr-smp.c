@@ -36,6 +36,77 @@ static void __msr_safe_batch(void *info)
         }
 
         op->err = 0;
+
+	// Grab aperf and mperf prior to anything else.
+	if( op->msrcmd & 0x4 ){
+		dp = (u32 *)&(op->aperf0);
+		if (rdmsr_safe(0xE8, &dp[0], &dp[1])){
+			op->err = -EIO;
+			continue;
+		}
+		dp = (u32 *)&(op->mperf0);
+		if (rdmsr_safe(0xE7, &dp[0], &dp[1])){
+			op->err = -EIO;
+			continue;
+		}
+	}else{
+		op->aperf0 = op->mperf0 = 0;
+	}
+
+	// This read happens regardless of whether the command 
+	// is a read or write.
+	dp = (u32 *)&oldmsr;
+	if (rdmsr_safe(op->msr, &dp[0], &dp[1])){
+		op->err = -EIO;
+		continue;
+	}
+	if( op->msrcmd & 0x1 ){
+		op->msrdata = oldmsr;
+	}
+
+	// poll until changed
+	if( op->msrcmd & 0x2 ){
+		op->msrdata = oldmsr;
+		dp = (u32 *)&(op->msrdata1);
+		do{	
+			if (rdmsr_safe(op->msr, &dp[0], &dp[1])){
+				op->err = -EIO;
+				break;
+			}
+		}while( op->msrdata == op->msrdata1 );
+		if( op->err ){
+			continue;
+		}
+	}
+	
+	// Handle the write case.
+	if( ! (op->msrcmd & 0x1) ){
+		newmsr = op->msrdata & op->wmask;
+		newmsr |= (oldmsr & ~op->wmask);
+		dp = (u32 *)&newmsr;
+		if (wrmsr_safe(op->msr, dp[0], dp[1]))
+		{
+		    op->err = -EIO;
+		}
+	}
+
+	// Grab aperf and mperf after everthing else.
+	if( op->msrcmd & 0x8 ){
+		dp = (u32 *)&(op->aperf1);
+		if (rdmsr_safe(0xE8, &dp[0], &dp[1])){
+			op->err = -EIO;
+			continue;
+		}
+		dp = (u32 *)&(op->mperf1);
+		if (rdmsr_safe(0xE7, &dp[0], &dp[1])){
+			op->err = -EIO;
+			continue;
+		}
+	}else{
+		op->aperf1 = op->mperf1 = 0;
+	}
+
+/* Original code
         dp = (u32 *)&oldmsr;
         if (rdmsr_safe(op->msr, &dp[0], &dp[1]))
         {
@@ -55,6 +126,7 @@ static void __msr_safe_batch(void *info)
         {
             op->err = -EIO;
         }
+*/
     }
 }
 
