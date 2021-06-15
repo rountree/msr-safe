@@ -44,6 +44,21 @@ struct msr_batch_op
  *                and mperf0 before reading the target msr.
  * 0x0008       If rdmsr, store APERF and MPERF values in aperf1
  *                and mperf1 after reading the target msr.
+ *
+ * 0x1 | 0x2 | 0x4 | 0x8 = 0xf
+ *  b0001
+ *| b0010
+ *| b0100
+ *| b1000
+ *-------
+ *  b1111	
+ *
+ *  b????	b????
+ * &b0001	b0010
+ * ======	=====
+ *  b000?	b00?0 
+ *
+ *
  */
 
 struct msr_batch_array
