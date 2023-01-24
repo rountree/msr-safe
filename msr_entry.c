@@ -40,6 +40,7 @@
 #include <linux/types.h>
 #include <linux/uaccess.h>
 #include <linux/version.h>
+#include <linux/stringify.h>
 
 #include "msr_batch.h"
 #include "msr_allowlist.h"
@@ -388,5 +389,5 @@ module_exit(msr_exit)
 
 MODULE_AUTHOR("M. Fadden, K. Shoga, B. Rountree, H. P. Anvin");
 MODULE_DESCRIPTION("x86 generic MSR driver (+LLNL Approved List)");
-MODULE_VERSION("1.6");
+MODULE_VERSION(__stringify(MSR_SAFE_STR_VER));
 MODULE_LICENSE("GPL");
