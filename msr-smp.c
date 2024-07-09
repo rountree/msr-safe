@@ -25,8 +25,10 @@ static void __msr_safe_batch(void *info)
     struct msr_batch_op *op;
     int this_cpu = smp_processor_id();
     u32 *dp;
+#if 0
     u64 oldmsr;
     u64 newmsr;
+#endif
 
     for (op = oa->ops; op < oa->ops + oa->numops; ++op)
     {
@@ -36,6 +38,29 @@ static void __msr_safe_batch(void *info)
         }
 
         op->err = 0;
+
+        if( op->op & MPERF0 )          { dp = (u32 *)&op->mperf[0];     rdmsr_safe( _IA32_MPERF,              &dp[0], &dp[1]); }
+
+        /* manadory read */            { dp = (u32 *)&op->readval;      rdmsr_safe( op->msr,                  &dp[0], &dp[1]); }
+        if( op->op & MSR_POLL         ){
+            do{
+        if( op->op & MPERF1 )          { dp = (u32 *)&op->mperf[1];     rdmsr_safe( _IA32_MPERF,              &dp[0], &dp[1]); }
+                                       { dp = (u32 *)&op->pollval;      rdmsr_safe( op->msr,                  &dp[0], &dp[1]); }
+            }while( op->readval == op->pollval );
+        }
+        if( op->op & MPERF2 )          { dp = (u32 *)&op->mperf[2];     rdmsr_safe( _IA32_MPERF,              &dp[0], &dp[1]); }
+        if( op->op & MSR_WRITE        ){
+            op->writeval  = (op->writeval & op->wmask);
+            op->writeval |= (op->readval & ~op->wmask);
+                                       { dp = (u32 *)&op->writeval;     wrmsr_safe(op->msr,                    dp[0],  dp[1]); }
+        }
+        if( op->op & MSR_THERM_STATUS ){ dp = (u32 *)&op->therm;        rdmsr_safe( _IA32_THERM_STATUS,       &dp[0], &dp[1]); }
+        if( op->op & MSR_PERF_STATUS  ){ dp = (u32 *)&op->perf;         rdmsr_safe( _IA32_PERF_STATUS,        &dp[0], &dp[1]); }
+        if( op->op & MSR_INS_RETIRED  ){ dp = (u32 *)&op->ins;          rdmsr_safe( _IA32_FIXED_CTR0,         &dp[0], &dp[1]); }
+        if( op->op & MPERF3 )          { dp = (u32 *)&op->mperf[3];     rdmsr_safe( _IA32_MPERF,              &dp[0], &dp[1]); }
+
+
+#if 0
         dp = (u32 *)&oldmsr;
         if (rdmsr_safe(op->msr, &dp[0], &dp[1]))
         {
@@ -55,6 +80,7 @@ static void __msr_safe_batch(void *info)
         {
             op->err = -EIO;
         }
+#endif
     }
 }
 
