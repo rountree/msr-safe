@@ -22,6 +22,7 @@ enum{
     IA32_PERF_GLOBAL_CTRL   = 0x38F,
     IA32_FIXED_CTR0         = 0x309,
     MSR_PKG_ENERGY_STATUS   = 0x611,
+    MSR_PP0_ENERGY_STATUS   = 0x639,
 };
 
 
@@ -34,6 +35,7 @@ char const *const allowlist = "0x0E7 0x0\n"  // MPERF
                               "0x38D 0x0000000000000333\n"  // IA32_FIXED_CTR_CTRL
                               "0x38F 0x000000070000000F\n"  // IA32_PERF_GLOBAL_CTRL
                               "0x611 0x0\n"  // MSR_PKG_ENERGY_STATUS
+			      "0x639 0x0\n"  // MSR_PP0_ENERGY_STATUS
                               ;
 
 //static uint8_t const nCPUs = 32;
@@ -63,8 +65,12 @@ struct msr_batch_op ops_disable_counters[] = {
     {.cpu=9, .op=MSR_WRITE, .msr=IA32_FIXED_CTR_CTRL,   .writeval=0x0},           // Disable USR + OS for instructions retired
 };
 
-struct msr_batch_op ops_poll_energy[] = {
+struct msr_batch_op ops_poll_pkg_energy[] = {
     {.cpu=9, .op=MSR_POLL | MPERF0 | MPERF1 | MPERF2, .msr=MSR_PKG_ENERGY_STATUS },
+};
+
+struct msr_batch_op ops_poll_pp0_energy[] = {
+    {.cpu=9, .op=MSR_POLL | MPERF0 | MPERF1 | MPERF2, .msr=MSR_PP0_ENERGY_STATUS },
 };
 
 void
@@ -77,8 +83,8 @@ dump_ops( struct msr_batch_array *b ){
     struct msr_batch_op *o = b->ops;
     for( size_t i = 0; i < b->numops; i++, o++ ){
         fprintf(stdout,
-                //cpu      op        err       msr       writeval  readval   pollval   wmask     mperf0    mperf1    mperf2    mperf3    therm     valid     perf      ins
-                "%"PRIu16" %"PRIu16" %"PRIu32" %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64"\n",
+                //cpu      op         err       msr        writeval  readval   pollval   wmask     mperf0    mperf1    mperf2    mperf3    therm     valid     perf      ins
+                "%"PRIu16" %#"PRIx16" %"PRIu32" %#"PRIx32" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64" %"PRIu64"\n",
                 (uint16_t)(o->cpu),
                 (uint16_t)(o->op),
                 (uint32_t)(o->err),
@@ -99,32 +105,40 @@ dump_ops( struct msr_batch_array *b ){
     }
 }
 
-void
-test_batch(int fd)
+
+
+int main()
 {
-    int rc;
+    int fd, rc;
+    fd = open("/dev/cpu/msr_batch", O_RDONLY);
+    assert(-1 != fd);
+
+    set_allowlist();
+
     batch.ops = ops_enable_counters;
     batch.numops        = sizeof( ops_enable_counters ) / sizeof( struct msr_batch_op );
     rc = ioctl(fd, X86_IOC_MSR_BATCH, &batch);
     assert(-1 != rc);
 
-    batch.ops = ops_poll_energy;
-    batch.numops        = sizeof( ops_poll_energy ) / sizeof( struct msr_batch_op );
+    for( size_t i=0; i<10; i++ ){
+	    batch.ops = ops_poll_pkg_energy;
+	    batch.numops        = sizeof( ops_poll_pkg_energy ) / sizeof( struct msr_batch_op );
+	    rc = ioctl(fd, X86_IOC_MSR_BATCH, &batch);
+	    assert(-1 != rc);
+	    dump_ops(&batch);
+    }
+    for( size_t i=0; i<10; i++ ){
+	    batch.ops = ops_poll_pp0_energy;
+	    batch.numops        = sizeof( ops_poll_pp0_energy ) / sizeof( struct msr_batch_op );
+	    rc = ioctl(fd, X86_IOC_MSR_BATCH, &batch);
+	    assert(-1 != rc);
+	    dump_ops(&batch);
+    }
+
+    batch.ops = ops_disable_counters;
+    batch.numops        = sizeof( ops_enable_counters ) / sizeof( struct msr_batch_op );
     rc = ioctl(fd, X86_IOC_MSR_BATCH, &batch);
     assert(-1 != rc);
-}
-
-int main()
-{
-    int fd;
-    fd = open("/dev/cpu/msr_batch", O_RDONLY);
-    assert(-1 != fd);
-
-    set_allowlist();
-    for( size_t i=0; i<10'000'000; i++ ){
-        test_batch(fd);
-        dump_ops(&batch);
-    }
 
     close(fd);
     return 0;
